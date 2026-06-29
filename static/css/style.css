@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════════
+   FINESE SCHOOL - Custom Styles
+   AI Assistant for Data Professionals
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    --fs-primary: #0d6efd;
+    --fs-secondary: #6c757d;
+    --fs-success: #198754;
+    --fs-dark: #212529;
+    --fs-light: #f8f9fa;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #f0f2f5;
+}
+
+/* ── Navbar ───────────────────────────────────────────────────── */
+.navbar-brand {
+    font-size: 1.2rem;
+}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.hover-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+.hover-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
+}
+
+/* ── Chat ─────────────────────────────────────────────────────── */
+#chatMessages {
+    scroll-behavior: smooth;
+}
+#chatMessages .bg-primary {
+    border-radius: 18px 18px 4px 18px !important;
+}
+#chatMessages .bg-light {
+    border-radius: 18px 18px 18px 4px !important;
+}
+
+/* Typing indicator */
+.typing-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+}
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6c757d;
+    animation: typing 1.4s infinite ease-in-out;
+}
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── CodeMirror ───────────────────────────────────────────────── */
+.CodeMirror {
+    height: auto;
+    min-height: 200px;
+    font-size: 14px;
+}
+
+/* ── Markdown Content ─────────────────────────────────────────── */
+.markdown-body pre {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+}
+.markdown-body code {
+    font-size: 0.875rem;
+}
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+.markdown-body table th,
+.markdown-body table td {
+    border: 1px solid #dee2e6;
+    padding: 0.5rem;
+}
+.markdown-body table th {
+    background: #f8f9fa;
+}
+
+/* ── Upload Zone ──────────────────────────────────────────────── */
+.upload-zone {
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+.upload-zone:hover {
+    border-color: var(--fs-primary) !important;
+    background: rgba(13, 110, 253, 0.05);
+}
+
+/* ── Data Table ───────────────────────────────────────────────── */
+#sqlResults table {
+    font-size: 0.85rem;
+}
+#sqlResults th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 1;
+}
+
+/* ── Learning ─────────────────────────────────────────────────── */
+.progress {
+    border-radius: 10px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .CodeMirror {
+        min-height: 150px;
+    }
+    #chatMessages .bg-primary,
+    #chatMessages .bg-light {
+        max-width: 95% !important;
+    }
+}

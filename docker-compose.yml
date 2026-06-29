@@ -1,0 +1,35 @@
+# ═══════════════════════════════════════════════════════════════
+# FINESE SCHOOL - Docker Compose
+# ═══════════════════════════════════════════════════════════════
+version: '3.8'
+
+services:
+  finese-school:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Ollama for local models
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    profiles:
+      - local-ai
+
+volumes:
+  ollama_data:

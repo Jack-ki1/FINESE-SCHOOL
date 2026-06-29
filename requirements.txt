@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════
+# FINESE SCHOOL - AI Assistant for Data Professionals
+# Requirements
+# ═══════════════════════════════════════════════════════════════
+
+# ── Core Framework ──────────────────────────────────────────────
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Werkzeug==3.0.1
+python-dotenv==1.0.0
+
+# ── Database ────────────────────────────────────────────────────
+SQLAlchemy==2.0.23
+alembic==1.13.0
+
+# ── LLM Providers ───────────────────────────────────────────────
+openai==1.6.1
+anthropic==0.8.1
+google-generativeai==0.3.2
+huggingface-hub==0.20.2
+requests==2.31.0
+
+# ── Vector Store / RAG ──────────────────────────────────────────
+chromadb==0.4.22
+
+# ── Data Analysis ───────────────────────────────────────────────
+pandas==2.1.4
+numpy==1.26.2
+openpyxl==3.1.2
+
+# ── Database Drivers ────────────────────────────────────────────
+pymysql==1.1.0
+psycopg2-binary==2.9.9
+
+# ── Code Execution ──────────────────────────────────────────────
+# (uses subprocess - no additional deps needed)
+
+# ── Rate Limiting ───────────────────────────────────────────────
+Flask-Limiter==3.5.0
+
+# ── Testing ─────────────────────────────────────────────────────
+pytest==7.4.3
+pytest-cov==4.1.0
