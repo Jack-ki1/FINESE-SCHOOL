@@ -59,7 +59,7 @@ def create_app():
 
     # ── Register Blueprints ────────────────────────────────────────
     app.register_blueprint(main_bp)
-    app.register_blueprint(chatbot_bp)
+    app.register_blueprint(chatbot_bp, url_prefix='/chat')  # Added URL prefix for chat routes
     app.register_blueprint(api_bp)
     app.register_blueprint(data_bp, url_prefix='/data')
     app.register_blueprint(education_bp, url_prefix='/learn')

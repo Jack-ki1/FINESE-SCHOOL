@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0"><i class="bi bi-clipboard-data me-2"></i>Teacher Dashboard</h1>
+            <p class="text-muted">Monitor student progress and performance in real-time</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-start border-primary border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <p class="text-muted mb-0">Students</p>
+                            <h4 class="mb-0">{{ stats.total_students }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-start border-success border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <p class="text-muted mb-0">Modules Completed</p>
+                            <h4 class="mb-0">{{ stats.total_modules_completed }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-start border-warning border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-journal-text text-warning" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <p class="text-muted mb-0">Exercises Attempted</p>
+                            <h4 class="mb-0">{{ stats.total_exercises_attempted }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-start border-info border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-graph-up text-info" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <p class="text-muted mb-0">Avg. Completion</p>
+                            <h4 class="mb-0">{{ stats.average_completion_rate }}%</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Learning Path Progress -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-book me-2"></i>Progress by Learning Path</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="pathFilter" data-bs-toggle="dropdown">
+                            All Paths
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">All Paths</a></li>
+                            {% for path in paths %}
+                            <li><a class="dropdown-item" href="#">{{ path.title }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Learning Path</th>
+                                    <th>Total Modules</th>
+                                    <th>Completed</th>
+                                    <th>Completion Rate</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for path in paths %}
+                                <tr>
+                                    <td>
+                                        <i class="{{ path.icon }} me-2"></i>{{ path.title }}
+                                    </td>
+                                    <td>{{ path.modules|length }}</td>
+                                    <td id="completed-{{ loop.index }}">0</td>
+                                    <td>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar" role="progressbar" style="width: 0%;" id="progress-{{ loop.index }}"></div>
+                                        </div>
+                                        <small id="percent-{{ loop.index }}">0%</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary" id="status-{{ loop.index }}">Not Started</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="bi bi-clock-history me-2"></i>Recent Student Activity</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Exercise</th>
+                                    <th>Result</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activityTableBody">
+                                {% for activity in stats.recent_activity %}
+                                <tr>
+                                    <td><code>{{ activity.session_id }}</code></td>
+                                    <td>{{ activity.exercise_id }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if activity.correct else 'bg-danger' }}">
+                                            {{ 'Correct' if activity.correct else 'Incorrect' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ activity.timestamp.split('T')[1][:8] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Struggled Exercises and Student List -->
+        <div class="col-lg-4">
+            <!-- Most Struggled Exercises -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Most Challenging Exercises</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.most_struggled_exercises %}
+                        {% for exercise in stats.most_struggled_exercises %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <small class="text-muted">{{ exercise.exercise_id }}</small>
+                                <div>
+                                    <small>{{ exercise.attempts }} attempts</small>
+                                </div>
+                            </div>
+                            <span class="badge bg-danger">{{ exercise.success_rate }}% correct</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center my-4">No challenging exercises identified yet</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Student List -->
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-person-lines-fill me-2"></i>Students</h5>
+                    <span class="badge bg-primary">{{ stats.total_students }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="studentSearch" placeholder="Search students...">
+                    </div>
+                    
+                    <div class="list-group" id="studentList">
+                        <!-- Student list will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load teacher stats and populate the dashboard
+    loadTeacherStats();
+    
+    // Set up auto-refresh every 30 seconds
+    setInterval(loadTeacherStats, 30000);
+});
+
+async function loadTeacherStats() {
+    try {
+        const response = await fetch('/learn/api/teacher-stats');
+        const stats = await response.json();
+        
+        // Update the stats cards
+        document.querySelector('.border-primary .mb-0:last-child').textContent = stats.total_students;
+        document.querySelector('.border-success .mb-0:last-child').textContent = stats.total_modules_completed;
+        document.querySelector('.border-warning .mb-0:last-child').textContent = stats.total_exercises_attempted;
+        document.querySelector('.border-info .mb-0:last-child').textContent = stats.average_completion_rate + '%';
+        
+        // Update progress by path
+        const paths = {{ paths | tojson }};
+        paths.forEach((path, index) => {
+            const pathStats = stats.progress_by_path[path.title];
+            if (pathStats) {
+                document.getElementById(`completed-${index+1}`).textContent = pathStats.completed;
+                
+                const percent = pathStats.completion_rate;
+                document.getElementById(`progress-${index+1}`).style.width = `${percent}%`;
+                document.getElementById(`percent-${index+1}`).textContent = `${percent}%`;
+                
+                const statusElement = document.getElementById(`status-${index+1}`);
+                if (percent >= 80) {
+                    statusElement.className = 'badge bg-success';
+                    statusElement.textContent = 'High';
+                } else if (percent >= 50) {
+                    statusElement.className = 'badge bg-warning';
+                    statusElement.textContent = 'Medium';
+                } else {
+                    statusElement.className = 'badge bg-danger';
+                    statusElement.textContent = 'Low';
+                }
+            }
+        });
+        
+        // Update recent activity
+        updateActivityTable(stats.recent_activity || []);
+        
+        // Update struggling exercises
+        updateStrugglingExercises(stats.most_struggled_exercises || []);
+        
+        // Update student list
+        updateStudentList(stats.students || []);
+    } catch (error) {
+        console.error('Error loading teacher stats:', error);
+    }
+}
+
+function updateActivityTable(activity) {
+    const tbody = document.getElementById('activityTableBody');
+    tbody.innerHTML = '';
+    
+    activity.slice(0, 10).forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><code>${item.session_id}</code></td>
+            <td>${item.exercise_id}</td>
+            <td>
+                <span class="badge ${item.correct ? 'bg-success' : 'bg-danger'}">
+                    ${item.correct ? 'Correct' : 'Incorrect'}
+                </span>
+            </td>
+            <td>${new Date(item.timestamp).toLocaleTimeString()}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function updateStrugglingExercises(exercises) {
+    const container = document.querySelector('.card-body').querySelector('.d-flex'); // Simplified selector
+    if (!exercises || exercises.length === 0) {
+        document.querySelector('.card-body').innerHTML = '<p class="text-muted text-center my-4">No challenging exercises identified yet</p>';
+        return;
+    }
+    
+    let html = '';
+    exercises.forEach(exercise => {
+        html += `
+            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                <div>
+                    <small class="text-muted">${exercise.exercise_id}</small>
+                    <div>
+                        <small>${exercise.attempts} attempts</small>
+                    </div>
+                </div>
+                <span class="badge bg-danger">${exercise.success_rate}% correct</span>
+            </div>
+        `;
+    });
+    
+    document.querySelector('.card-body').innerHTML = html;
+}
+
+function updateStudentList(students) {
+    const container = document.getElementById('studentList');
+    container.innerHTML = '';
+    
+    students.forEach(student => {
+        const link = document.createElement('a');
+        link.className = 'list-group-item list-group-item-action';
+        link.href = `/learn/api/student-progress/${student.session_id}`;
+        link.innerHTML = `
+            <div class="d-flex justify-content-between">
+                <div>
+                    <div class="fw-semibold">${student.session_id.substring(0, 8)}...</div>
+                    <small class="text-muted">${student.modules_completed} modules</small>
+                </div>
+                <span class="badge bg-${student.completion_status === 'high' ? 'success' : student.completion_status === 'medium' ? 'warning' : 'danger'}">
+                    ${student.completion_percentage}%
+                </span>
+            </div>
+        `;
+        container.appendChild(link);
+    });
+}
+
+// Search functionality for students
+document.getElementById('studentSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const studentItems = document.querySelectorAll('#studentList .list-group-item');
+    
+    studentItems.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

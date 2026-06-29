@@ -1,368 +1,621 @@
 """
-LLM Service - Multi-provider language model integration.
-Supports OpenAI, Anthropic, Google Gemini, Hugging Face Inference, and Ollama (local).
+Multi-provider LLM service with MCP (Model Context Protocol) support.
+Supports OpenAI, Anthropic, Google, HuggingFace, and Ollama.
 """
 import os
-import json
-import requests
-from typing import List, Dict, Optional, Generator
+import logging
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
+
+# ── Provider Imports ───────────────────────────────────────────────
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logger.warning("OpenAI library not installed. Run: pip install openai")
+
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    logger.warning("Anthropic library not installed. Run: pip install anthropic")
+
+try:
+    import google.generativeai as genai
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+    logger.warning("Google Generative AI library not installed. Run: pip install google-generativeai")
+
+# ── MCP Support ──────────────────────────────────────────────────
+try:
+    from .mcp_service import configure_mcp_client, get_mcp_client
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    logger.info("MCP (Model Context Protocol) service not available.")
 
 
 @dataclass
 class LLMResponse:
     content: str
-    model: str
-    provider: str
-    usage: Dict = None
-    metadata: Dict = None
+    usage: Optional[Dict[str, int]] = None
+    model: Optional[str] = None
+    provider: Optional[str] = None
 
 
-class BaseLLMProvider:
-    """Base class for LLM providers."""
+class BaseLLMProvider(ABC):
+    """Abstract base class for LLM providers."""
     
-    def __init__(self, api_key: str = None, model: str = None):
-        self.api_key = api_key
-        self.model = model
+    @abstractmethod
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        pass
     
-    def chat(self, messages: List[Dict], **kwargs) -> LLMResponse:
-        raise NotImplementedError
-    
-    def chat_stream(self, messages: List[Dict], **kwargs) -> Generator[str, None, None]:
-        """Stream response tokens. Default falls back to non-streaming."""
-        response = self.chat(messages, **kwargs)
-        yield response.content
+    @abstractmethod
+    def available_models(self) -> List[str]:
+        pass
 
 
-class OpenAIProvider(BaseLLMProvider):
-    """OpenAI GPT provider."""
+class OpenAILLMProvider(BaseLLMProvider):
+    """OpenAI-compatible LLM provider."""
     
-    def __init__(self, api_key: str = None, model: str = 'gpt-4o-mini'):
-        super().__init__(api_key or os.environ.get('OPENAI_API_KEY', ''), model)
-        try:
-            from openai import OpenAI
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.environ.get('OPENAI_API_KEY')
+        if not self.api_key and OPENAI_AVAILABLE:
+            logger.warning("No OpenAI API key found. Set OPENAI_API_KEY environment variable.")
+        
+        if OPENAI_AVAILABLE:
             self.client = OpenAI(api_key=self.api_key)
-        except ImportError:
+        else:
             self.client = None
     
-    def chat(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs) -> LLMResponse:
-        if not self.client:
-            raise RuntimeError("OpenAI package not installed. Run: pip install openai")
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        if not OPENAI_AVAILABLE:
+            raise ImportError("OpenAI library not installed. Run: pip install openai")
+        
         if not self.api_key:
-            raise RuntimeError("OpenAI API key not configured.")
+            raise ValueError("OpenAI API key not set")
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs
-        )
-        return LLMResponse(
-            content=response.choices[0].message.content,
-            model=self.model,
-            provider='openai',
-            usage={
-                'prompt_tokens': response.usage.prompt_tokens,
-                'completion_tokens': response.usage.completion_tokens,
-                'total_tokens': response.usage.total_tokens,
-            }
-        )
+        # Prepare the call parameters
+        params = {
+            'model': kwargs.get('model', 'gpt-4o-mini'),
+            'messages': messages,
+            'temperature': kwargs.get('temperature', 0.7),
+            'max_tokens': kwargs.get('max_tokens', 1024),
+        }
+        
+        # Include tools if MCP is available and requested
+        if kwargs.get('use_tools', False) and MCP_AVAILABLE:
+            mcp_client = get_mcp_client()
+            if mcp_client:
+                tool_definitions = mcp_client.get_tool_definitions()
+                params['tools'] = tool_definitions
+                params['tool_choice'] = "auto"  # Let the model decide when to use tools
+        
+        # Remove None values
+        params = {k: v for k, v in params.items() if v is not None}
+        
+        try:
+            response = self.client.chat.completions.create(**params)
+            
+            # Handle tool calls if present
+            if hasattr(response.choices[0].message, 'tool_calls') and response.choices[0].message.tool_calls:
+                # Execute tools and get results
+                tool_results = []
+                for tool_call in response.choices[0].message.tool_calls:
+                    # Parse the arguments
+                    import json
+                    try:
+                        args = json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError:
+                        args = {}
+                    
+                    # Execute the tool call using MCP client
+                    mcp_client = get_mcp_client()
+                    if mcp_client:
+                        result = mcp_client.execute_tool_call(tool_call.function.name, args)
+                        tool_results.append({
+                            "tool_call_id": tool_call.id,
+                            "role": "tool",
+                            "name": tool_call.function.name,
+                            "content": str(result)
+                        })
+                
+                # If we have tool results, call again with results to get final response
+                if tool_results:
+                    new_messages = messages + [response.choices[0].message.model_dump()] + tool_results
+                    
+                    # Make a second call with tool results
+                    final_params = {
+                        'model': params['model'],
+                        'messages': new_messages,
+                        'temperature': params['temperature'],
+                        'max_tokens': params['max_tokens'],
+                    }
+                    final_response = self.client.chat.completions.create(**final_params)
+                    content = final_response.choices[0].message.content
+                else:
+                    content = response.choices[0].message.content
+            else:
+                content = response.choices[0].message.content
+            
+            return LLMResponse(
+                content=content,
+                usage={
+                    'prompt_tokens': response.usage.prompt_tokens,
+                    'completion_tokens': response.usage.completion_tokens,
+                    'total_tokens': response.usage.total_tokens,
+                } if response.usage else None,
+                model=response.model,
+                provider='openai'
+            )
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            raise
     
-    def chat_stream(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs):
-        if not self.client:
-            raise RuntimeError("OpenAI package not installed.")
+    def available_models(self) -> List[str]:
+        if not OPENAI_AVAILABLE:
+            return []
         
-        stream = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=True,
-            **kwargs
-        )
-        for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        try:
+            models = self.client.models.list()
+            return [model.id for model in models.data]
+        except Exception:
+            return ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
 
 
-class AnthropicProvider(BaseLLMProvider):
+class AnthropicLLMProvider(BaseLLMProvider):
     """Anthropic Claude provider."""
     
-    def __init__(self, api_key: str = None, model: str = 'claude-3-haiku-20240307'):
-        super().__init__(api_key or os.environ.get('ANTHROPIC_API_KEY', ''), model)
-        try:
-            from anthropic import Anthropic
-            self.client = Anthropic(api_key=self.api_key)
-        except ImportError:
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.environ.get('ANTHROPIC_API_KEY')
+        if not self.api_key and ANTHROPIC_AVAILABLE:
+            logger.warning("No Anthropic API key found. Set ANTHROPIC_API_KEY environment variable.")
+        
+        if ANTHROPIC_AVAILABLE:
+            self.client = anthropic.Anthropic(api_key=self.api_key)
+        else:
             self.client = None
     
-    def chat(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, system: str = None, **kwargs) -> LLMResponse:
-        if not self.client:
-            raise RuntimeError("Anthropic package not installed. Run: pip install anthropic")
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        if not ANTHROPIC_AVAILABLE:
+            raise ImportError("Anthropic library not installed. Run: pip install anthropic")
+        
         if not self.api_key:
-            raise RuntimeError("Anthropic API key not configured.")
+            raise ValueError("Anthropic API key not set")
         
-        # Separate system message
-        system_msg = system or ""
-        chat_messages = [m for m in messages if m['role'] != 'system']
+        # Convert messages from OpenAI format to Anthropic format
+        # Anthropic requires alternating human/assistant messages
+        formatted_messages = []
+        for msg in messages:
+            if msg['role'] == 'system':
+                # Anthropic handles system messages differently
+                continue  # Skip system message here, add separately
+            elif msg['role'] == 'user':
+                formatted_messages.append({"role": "user", "content": msg['content']})
+            elif msg['role'] == 'assistant':
+                formatted_messages.append({"role": "assistant", "content": msg['content']})
         
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system_msg,
-            messages=chat_messages,
-            **kwargs
-        )
-        return LLMResponse(
-            content=response.content[0].text,
-            model=self.model,
-            provider='anthropic',
-            usage={
-                'input_tokens': response.usage.input_tokens,
-                'output_tokens': response.usage.output_tokens,
-            }
-        )
+        params = {
+            'model': kwargs.get('model', 'claude-3-haiku-20240307'),
+            'messages': formatted_messages,
+            'temperature': kwargs.get('temperature', 0.7),
+            'max_tokens': kwargs.get('max_tokens', 1024),
+        }
+        
+        # Add tools if MCP is available and requested
+        if MCP_AVAILABLE and kwargs.get('enable_tools', False):
+            from .mcp_service import get_mcp_client
+            mcp_client = get_mcp_client()
+            params['tools'] = mcp_client.get_tool_definitions()
+        
+        # Add system message separately if present
+        system_msg = None
+        for msg in messages:
+            if msg['role'] == 'system':
+                system_msg = msg['content']
+                break
+        
+        if system_msg:
+            params['system'] = system_msg
+            
+        # Remove None values
+        params = {k: v for k, v in params.items() if v is not None}
+        
+        try:
+            response = self.client.messages.create(**params)
+            
+            # Handle tool calls if present
+            content = response.content[0].text if response.content else ""
+            
+            return LLMResponse(
+                content=content,
+                usage={
+                    'prompt_tokens': response.usage.input_tokens,
+                    'completion_tokens': response.usage.output_tokens,
+                    'total_tokens': response.usage.input_tokens + response.usage.output_tokens,
+                },
+                model=response.model,
+                provider='anthropic'
+            )
+        except Exception as e:
+            logger.error(f"Anthropic API error: {e}")
+            raise
     
-    def chat_stream(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, system: str = None, **kwargs):
-        if not self.client:
-            raise RuntimeError("Anthropic package not installed.")
-        
-        system_msg = system or ""
-        chat_messages = [m for m in messages if m['role'] != 'system']
-        
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system_msg,
-            messages=chat_messages,
-            **kwargs
-        ) as stream:
-            for text in stream.text_stream:
-                yield text
+    def available_models(self) -> List[str]:
+        if ANTHROPIC_AVAILABLE:
+            return ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229']
+        return []
 
 
-class GoogleProvider(BaseLLMProvider):
+class GoogleLLMProvider(BaseLLMProvider):
     """Google Gemini provider."""
     
-    def __init__(self, api_key: str = None, model: str = 'gemini-1.5-flash'):
-        super().__init__(api_key or os.environ.get('GOOGLE_API_KEY', ''), model)
-        try:
-            import google.generativeai as genai
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.environ.get('GOOGLE_API_KEY')
+        if not self.api_key and GOOGLE_AVAILABLE:
+            logger.warning("No Google API key found. Set GOOGLE_API_KEY environment variable.")
+        
+        if GOOGLE_AVAILABLE:
             genai.configure(api_key=self.api_key)
-            self.genai = genai
-            self.model_obj = genai.GenerativeModel(self.model)
-        except ImportError:
-            self.genai = None
-            self.model_obj = None
+        else:
+            self.model = None
     
-    def chat(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs) -> LLMResponse:
-        if not self.genai:
-            raise RuntimeError("Google Generative AI package not installed. Run: pip install google-generativeai")
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        if not GOOGLE_AVAILABLE:
+            raise ImportError("Google Generative AI library not installed. Run: pip install google-generativeai")
+        
         if not self.api_key:
-            raise RuntimeError("Google API key not configured.")
+            raise ValueError("Google API key not set")
         
-        # Convert messages to Gemini format
-        system_msg = ""
-        history = []
-        for m in messages:
-            if m['role'] == 'system':
-                system_msg = m['content']
-            elif m['role'] == 'user':
-                history.append({'role': 'user', 'parts': [m['content']]})
-            elif m['role'] == 'assistant':
-                history.append({'role': 'model', 'parts': [m['content']]})
+        model_name = kwargs.get('model', 'gemini-1.5-flash')
+        self.model = genai.GenerativeModel(model_name)
         
-        model = self.genai.GenerativeModel(
-            self.model,
-            system_instruction=system_msg if system_msg else None
-        )
-        chat = model.start_chat(history=history[:-1] if len(history) > 1 else [])
+        # Convert messages to Google format
+        # Google expects a single conversation with alternating user/assistant parts
+        converted_history = []
+        current_user_content = ""
         
-        response = chat.send_message(
-            history[-1]['parts'][0] if history else "Hello",
-            generation_config=self.genai.types.GenerationConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
+        for msg in messages:
+            if msg['role'] == 'system':
+                # Google handles system instructions differently
+                continue  # We'll handle system message separately
+            elif msg['role'] == 'user':
+                current_user_content = msg['content']
+            elif msg['role'] == 'assistant':
+                if current_user_content:
+                    converted_history.append({'role': 'user', 'parts': [current_user_content]})
+                    current_user_content = ""
+                converted_history.append({'role': 'model', 'parts': [msg['content']]})
+        
+        # Add remaining user message if exists
+        if current_user_content:
+            converted_history.append({'role': 'user', 'parts': [current_user_content]})
+        
+        # Create chat session with history
+        chat = self.model.start_chat(history=converted_history)
+        
+        # Prepare generation config
+        generation_config = {
+            'temperature': kwargs.get('temperature', 0.7),
+            'max_output_tokens': kwargs.get('max_tokens', 1024),
+        }
+        
+        # Get system instruction if exists
+        system_instruction = None
+        for msg in messages:
+            if msg['role'] == 'system':
+                system_instruction = msg['content']
+                break
+        
+        try:
+            if system_instruction:
+                # For system instructions, we'll add it to the prompt
+                response = chat.send_message(
+                    system_instruction + "\n\n" + (messages[-1]['content'] if messages else ""),
+                    generation_config=generation_config
+                )
+            else:
+                response = chat.send_message(
+                    messages[-1]['content'] if messages else "Hello",
+                    generation_config=generation_config
+                )
+            
+            return LLMResponse(
+                content=response.text,
+                usage=None,  # Google doesn't provide usage in the same way
+                model=model_name,
+                provider='google'
             )
-        )
-        return LLMResponse(
-            content=response.text,
-            model=self.model,
-            provider='google',
-        )
+        except Exception as e:
+            logger.error(f"Google API error: {e}")
+            raise
+    
+    def available_models(self) -> List[str]:
+        if GOOGLE_AVAILABLE:
+            try:
+                models = genai.list_models()
+                return [model.name.replace("models/", "") for model in models]
+            except Exception:
+                return ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro']
+        return []
 
 
-class HuggingFaceProvider(BaseLLMProvider):
+class HuggingFaceLLMProvider(BaseLLMProvider):
     """Hugging Face Inference API provider."""
     
-    def __init__(self, api_key: str = None, model: str = 'mistralai/Mistral-7B-Instruct-v0.3'):
-        super().__init__(api_key or os.environ.get('HF_TOKEN', ''), model)
+    def __init__(self, hf_token: str = None):
+        self.hf_token = hf_token or os.environ.get('HF_TOKEN')
+        if not self.hf_token:
+            logger.warning("No Hugging Face token found. Set HF_TOKEN environment variable.")
     
-    def chat(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs) -> LLMResponse:
-        if not self.api_key:
-            raise RuntimeError("Hugging Face token (HF_TOKEN) not configured.")
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        import requests
         
-        # Build prompt from messages
-        prompt = self._build_prompt(messages)
+        model = kwargs.get('model', 'mistralai/Mistral-7B-Instruct-v0.3')
+        api_url = f"https://api-inference.huggingface.co/models/{model}"
         
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        if not self.hf_token:
+            raise ValueError("Hugging Face token not set")
+        
+        # Format messages for HuggingFace
+        # Using chat template approach
+        prompt = ""
+        for msg in messages:
+            role = msg['role']
+            content = msg['content']
+            if role == 'user':
+                prompt += f"[INST] {content} [/INST]"
+            elif role == 'assistant':
+                prompt += f" {content} "
+            elif role == 'system':
+                prompt = f"<<SYS>> {content} <</SYS>> {prompt}" if prompt else f"<<SYS>> {content} <</SYS>>\n"
+        
+        headers = {"Authorization": f"Bearer {self.hf_token}"}
         payload = {
             "inputs": prompt,
             "parameters": {
-                "max_new_tokens": max_tokens,
-                "temperature": temperature,
-                "return_full_text": False,
+                "temperature": kwargs.get('temperature', 0.7),
+                "max_new_tokens": kwargs.get('max_tokens', 1024),
+                "return_full_text": False
             }
         }
         
-        api_url = f"https://api-inference.huggingface.co/models/{self.model}"
-        response = requests.post(api_url, headers=headers, json=payload, timeout=120)
-        response.raise_for_status()
-        result = response.json()
-        
-        if isinstance(result, list) and len(result) > 0:
-            text = result[0].get('generated_text', '')
-        else:
-            text = str(result)
-        
-        return LLMResponse(
-            content=text.strip(),
-            model=self.model,
-            provider='huggingface',
-        )
+        try:
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            result = response.json()
+            content = result[0]['generated_text']
+            
+            return LLMResponse(
+                content=content,
+                provider='huggingface'
+            )
+        except Exception as e:
+            logger.error(f"Hugging Face API error: {e}")
+            raise
     
-    def _build_prompt(self, messages: List[Dict]) -> str:
-        """Build a prompt string from message history."""
-        parts = []
-        for m in messages:
-            if m['role'] == 'system':
-                parts.append(f"[SYSTEM] {m['content']}[/SYSTEM]")
-            elif m['role'] == 'user':
-                parts.append(f"[INST] {m['content']} [/INST]")
-            elif m['role'] == 'assistant':
-                parts.append(m['content'])
-        return "\n".join(parts)
+    def available_models(self) -> List[str]:
+        return ['mistralai/Mistral-7B-Instruct-v0.3', 'google/gemma-7b-it', 'meta-llama/Llama-2-7b-chat-hf']
 
 
-class OllamaProvider(BaseLLMProvider):
-    """Ollama local LLM provider."""
+class OllamaLLMProvider(BaseLLMProvider):
+    """Local Ollama provider."""
     
-    def __init__(self, api_key: str = None, model: str = 'llama3.2', base_url: str = 'http://localhost:11434'):
-        super().__init__(api_key, model)
-        self.base_url = base_url.rstrip('/')
+    def __init__(self, base_url: str = None):
+        self.base_url = base_url or os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
     
-    def chat(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs) -> LLMResponse:
+    def chat(self, messages: List[Dict[str, str]], **kwargs) -> LLMResponse:
+        import requests
+        
+        model = kwargs.get('model', 'llama3.2')
+        url = f"{self.base_url}/api/chat"
+        
         payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            }
+            'model': model,
+            'messages': messages,
+            'options': {
+                'temperature': kwargs.get('temperature', 0.7),
+                'num_predict': kwargs.get('max_tokens', 1024),
+            },
+            'stream': False
         }
         
-        response = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=300)
-        response.raise_for_status()
-        result = response.json()
-        
-        return LLMResponse(
-            content=result.get('message', {}).get('content', ''),
-            model=self.model,
-            provider='ollama',
-        )
+        try:
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            return LLMResponse(
+                content=result['message']['content'],
+                usage=None,  # Ollama doesn't always provide detailed usage
+                model=result.get('model'),
+                provider='ollama'
+            )
+        except Exception as e:
+            logger.error(f"Ollama API error: {e}")
+            raise
     
-    def chat_stream(self, messages: List[Dict], temperature: float = 0.7, max_tokens: int = 1024, **kwargs):
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": True,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            }
-        }
+    def available_models(self) -> List[str]:
+        import requests
         
-        response = requests.post(f"{self.base_url}/api/chat", json=payload, stream=True, timeout=300)
-        for line in response.iter_lines():
-            if line:
-                try:
-                    data = json.loads(line)
-                    if 'message' in data and 'content' in data['message']:
-                        yield data['message']['content']
-                except json.JSONDecodeError:
-                    pass
+        try:
+            response = requests.get(f"{self.base_url}/api/tags")
+            if response.status_code == 200:
+                data = response.json()
+                return [model['name'] for model in data.get('models', [])]
+        except Exception:
+            pass
+        
+        return ['llama3.2', 'mistral', 'gemma:7b', 'phi3']
 
 
 class LLMService:
-    """Unified LLM service that routes to the correct provider."""
+    """Main LLM service with multi-provider support and MCP capabilities."""
     
-    PROVIDERS = {
-        'openai': OpenAIProvider,
-        'anthropic': AnthropicProvider,
-        'google': GoogleProvider,
-        'huggingface': HuggingFaceProvider,
-        'ollama': OllamaProvider,
-    }
-    
-    DEFAULT_MODELS = {
-        'openai': 'gpt-4o-mini',
-        'anthropic': 'claude-3-haiku-20240307',
-        'google': 'gemini-1.5-flash',
-        'huggingface': 'mistralai/Mistral-7B-Instruct-v0.3',
-        'ollama': 'llama3.2',
-    }
+    def __init__(self):
+        self.providers = {
+            'openai': OpenAILLMProvider(),
+            'anthropic': AnthropicLLMProvider(),
+            'google': GoogleLLMProvider(),
+            'huggingface': HuggingFaceLLMProvider(),
+            'ollama': OllamaLLMProvider(),
+        }
     
     @classmethod
-    def get_provider(cls, provider_name: str, model: str = None, api_key: str = None):
-        provider_class = cls.PROVIDERS.get(provider_name)
-        if not provider_class:
-            raise ValueError(f"Unknown provider: {provider_name}. Available: {list(cls.PROVIDERS.keys())}")
+    def get_provider(cls, provider_name: str, model: str = None):
+        """Get an instance of the specified provider."""
+        service = cls()
+        if provider_name not in service.providers:
+            raise ValueError(f"Unsupported provider: {provider_name}")
         
-        if not model:
-            model = cls.DEFAULT_MODELS.get(provider_name)
-        
-        return provider_class(api_key=api_key, model=model)
+        return service.providers[provider_name]
     
     @classmethod
-    def get_available_providers(cls) -> List[Dict]:
-        """Return list of available providers with their status."""
-        providers = []
-        for name, pclass in cls.PROVIDERS.items():
-            status = 'available'
-            # Check if package is installed
+    def available_providers(cls) -> Dict[str, bool]:
+        """Check which providers are available based on installed libraries and API keys."""
+        service = cls()
+        available = {}
+        
+        checks = {
+            'openai': lambda: bool(service.providers['openai'].api_key) and OPENAI_AVAILABLE,
+            'anthropic': lambda: bool(service.providers['anthropic'].api_key) and ANTHROPIC_AVAILABLE,
+            'google': lambda: bool(service.providers['google'].api_key) and GOOGLE_AVAILABLE,
+            'huggingface': lambda: bool(service.providers['huggingface'].hf_token),
+            'ollama': lambda: True,  # Ollama is local, always potentially available
+        }
+        
+        for name, check in checks.items():
             try:
-                if name == 'openai':
-                    import openai
-                elif name == 'anthropic':
-                    import anthropic
-                elif name == 'google':
-                    import google.generativeai
-                elif name == 'ollama':
-                    requests.get('http://localhost:11434', timeout=2)
+                available[name] = check()
             except Exception:
-                status = 'package_missing' if name != 'ollama' else 'server_offline'
-            
-            # Check API key
-            key_env = {
-                'openai': 'OPENAI_API_KEY',
-                'anthropic': 'ANTHROPIC_API_KEY',
-                'google': 'GOOGLE_API_KEY',
-                'huggingface': 'HF_TOKEN',
-                'ollama': None,
-            }
-            has_key = bool(os.environ.get(key_env.get(name, ''), '')) if key_env.get(name) else True
-            
-            providers.append({
-                'name': name,
-                'default_model': cls.DEFAULT_MODELS.get(name),
-                'status': status,
-                'has_key': has_key,
-            })
-        return providers
+                available[name] = False
+                
+        return available
+    
+    @classmethod
+    def get_mcp_client(cls):
+        """Initialize and return an MCP client if available."""
+        if not MCP_AVAILABLE:
+            logger.warning("MCP not available. Install with: pip install mcp")
+            return None
+        
+        try:
+            # Import and return the MCP client
+            return get_mcp_client()
+        except Exception as e:
+            logger.error(f"Error initializing MCP client: {e}")
+            return None
+
+
+# ── Socratic Mode Helper ──────────────────────────────────────────
+def create_socratic_prompt(question: str, subject_area: str = "general") -> str:
+    """
+    Creates a prompt that encourages Socratic questioning approach.
+    Instead of giving direct answers, guides the student to discover solutions.
+    """
+    socratic_system = f"""
+You are an expert tutor using the Socratic method. Your role is to guide students to discover answers themselves through thoughtful questions, rather than providing direct solutions.
+
+Guidelines:
+1. Ask leading questions that guide the student toward the solution
+2. Break complex problems into smaller, manageable questions
+3. Encourage critical thinking by asking "what if" or "how do you think" questions
+4. If the student makes an error, ask them to reconsider their approach rather than correcting directly
+5. Acknowledge good thinking and encourage further exploration
+6. Adapt your questions to the subject area: {subject_area}
+
+Remember: Your goal is to promote understanding, not just get the right answer.
+"""
+    
+    return socratic_system
+
+
+# ── Adaptive Difficulty Helper ───────────────────────────────────
+def calculate_difficulty_score(user_performance: List[bool], recent_streak: int = 0) -> str:
+    """
+    Calculate adaptive difficulty level based on user performance.
+    Returns 'beginner', 'intermediate', or 'advanced'.
+    """
+    if not user_performance:
+        return 'beginner'
+    
+    accuracy = sum(user_performance) / len(user_performance)
+    
+    # Adjust based on both accuracy and recent streak
+    if accuracy >= 0.8 and recent_streak >= 2:
+        return 'advanced'
+    elif accuracy >= 0.6:
+        return 'intermediate'
+    else:
+        return 'beginner'
+
+
+# ── Multi-Model Routing Helper ───────────────────────────────────
+def select_model_by_task(task_complexity: str, task_type: str, available_providers: Dict[str, bool]):
+    """
+    Select the appropriate model based on task requirements.
+    Implements the 80/20 rule: heavy tasks to big models, simple to mini models.
+    """
+    routing_rules = {
+        ('complex', 'reasoning'): ['openai:gpt-4o', 'anthropic:claude-3-sonnet-20240229'],
+        ('complex', 'analysis'): ['openai:gpt-4o', 'anthropic:claude-3-sonnet-20240229'],
+        ('simple', 'factoid'): ['openai:gpt-4o-mini', 'anthropic:claude-3-haiku-20240307'],
+        ('simple', 'qa'): ['openai:gpt-4o-mini', 'anthropic:claude-3-haiku-20240307'],
+        ('medium', 'coding'): ['openai:gpt-4o', 'google:gemini-1.5-pro'],
+        ('medium', 'explanation'): ['anthropic:claude-3-sonnet-20240229', 'google:gemini-1.5-flash'],
+        ('complex', 'data_analysis'): ['openai:gpt-4o', 'google:gemini-1.5-pro'],
+        ('simple', 'data_query'): ['openai:gpt-4o-mini', 'anthropic:claude-3-haiku-20240307'],
+    }
+    
+    key = (task_complexity, task_type)
+    candidates = routing_rules.get(key, ['openai:gpt-4o-mini', 'anthropic:claude-3-haiku-20240307'])
+    
+    # Filter by available providers
+    for candidate in candidates:
+        provider = candidate.split(':')[0]
+        if available_providers.get(provider, False):
+            return candidate
+    
+    # Fallback to default
+    return 'openai:gpt-4o-mini'
+
+
+# ── Enhanced LLM Service with MCP Integration ────────────────────
+def get_optimized_provider(task_description: str, use_mcp: bool = False):
+    """
+    Get the most appropriate provider based on task description and MCP availability.
+    """
+    # Determine task complexity and type
+    task_complexity = 'simple'
+    task_type = 'qa'
+    
+    if any(keyword in task_description.lower() for keyword in ['analyze', 'compare', 'evaluate']):
+        task_complexity = 'complex'
+        task_type = 'analysis'
+    elif any(keyword in task_description.lower() for keyword in ['code', 'program', 'function']):
+        task_complexity = 'medium'
+        task_type = 'coding'
+    elif any(keyword in task_description.lower() for keyword in ['data', 'sql', 'query']):
+        task_complexity = 'medium'
+        task_type = 'data_query'
+    
+    available_providers = LLMService.available_providers()
+    selected_model = select_model_by_task(task_complexity, task_type, available_providers)
+    provider_name, model_name = selected_model.split(':', 1) if ':' in selected_model else ('openai', 'gpt-4o-mini')
+    
+    provider = LLMService.get_provider(provider_name, model_name)
+    
+    # Add MCP tools if requested and available
+    if use_mcp and MCP_AVAILABLE:
+        # Return provider with MCP configuration
+        return provider, {'use_tools': True}
+    else:
+        return provider, {}
