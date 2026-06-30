@@ -1,419 +1,425 @@
-# ChatBot Pro - Flask Edition
+# 🎓 FINESE SCHOOL - Modern AI Tutor Platform (Flask Version)
 
-A production-ready, multi-provider AI chatbot built with **Flask**, inspired by the architecture of [FINESE_2](https://github.com/Jack-ki1/FINESE_2/). This is a complete rebuild of the original Hugging Face Space `chatbot1` as a modular, extensible Flask application.
+A powerful, modern educational AI tutor platform built with Flask, featuring glassmorphism UI, multi-model support, and streaming responses. Perfect for learning data science concepts!
 
----
+## ✨ Features
 
-## Table of Contents
+### Core Features
+- 🤖 **Multi-Model Support**: Switch between Hugging Face, OpenAI, Google Gemini, Anthropic models
+- ⚡ **Streaming Responses**: Real-time typing effect using Server-Sent Events (SSE)
+- 🎨 **Modern Glassmorphism UI**: Beautiful translucent design with animated gradients
+- 🌓 **Dark/Light Theme**: Toggle between themes with persistent preferences
+- 📱 **Fully Responsive**: Works perfectly on desktop, tablet, and mobile
+- 📥 **PDF Export**: Download entire chat sessions for offline study
+- 🎯 **Topic-Locked Conversations**: Stay focused on selected data science topics
 
-1. [Architecture Overview](#architecture-overview)
-2. [Project Structure](#project-structure)
-3. [Quick Start](#quick-start)
-4. [Supported LLM Providers](#supported-llm-providers)
-5. [Key Features](#key-features)
-6. [API Endpoints](#api-endpoints)
-7. [Configuration](#configuration)
-8. [Extending the Chatbot](#extending-the-chatbot)
-9. [Troubleshooting](#troubleshooting)
-10. [License](#license)
+### Educational Features
+- 🧠 **Socratic Method**: Guided questioning to promote critical thinking
+- 💻 **Code Examples**: Runnable code snippets with syntax highlighting
+- 💡 **Best Practices**: Expert tips and common pitfalls
+- 🔍 **Diagnosis**: AI identifies potential misunderstandings
+- 📊 **Session Statistics**: Track questions asked and topics covered
 
----
+### Technical Excellence
+- 🚀 **Pure Tech Stack**: Python + HTML/CSS/JavaScript only (no frameworks!)
+- 🔒 **Secure**: API keys never exposed to frontend
+- ⚙️ **Configurable**: Easy environment variable configuration
+- 📦 **Lightweight**: Minimal dependencies, fast performance
 
-## Architecture Overview
-
-| Layer | Files | Purpose |
-|-------|-------|---------|
-| **Entry Point** | `app.py` | Flask app factory, blueprint registration, session config |
-| **Config** | `config.py` | Global constants, API keys, defaults |
-| **Core** | `core/chat_store.py`, `core/document_store.py` | Server-side pickle persistence for chats & documents |
-| **Services** | `services/llm_service.py` | Multi-provider LLM abstraction (OpenAI, Anthropic, Google, HF, Ollama) |
-| **Routes** | `routes/main.py`, `routes/chatbot.py`, `routes/api.py` | Flask blueprints for UI, chat API, and file upload |
-| **Templates** | `templates/*.html` | Jinja2 + Bootstrap 5 frontend |
-| **Static** | `static/css/style.css`, `static/js/main.js` | Custom styles and shared JS utilities |
-
----
-
-## Project Structure
-
-```
-chatbot_flask/
-├── app.py                          # Flask entry point
-├── config.py                       # Global configuration
-├── requirements.txt                # Python dependencies
-├── .env.example                    # Environment variables template
-├── .gitignore                      # Git ignore rules
-│
-├── core/                           # Data persistence layer
-│   ├── __init__.py
-│   ├── chat_store.py              # Conversation & message storage (pickle)
-│   └── document_store.py          # Uploaded file storage for RAG
-│
-├── services/                       # Business logic
-│   ├── __init__.py
-│   └── llm_service.py             # Multi-provider LLM integration
-│
-├── routes/                         # Flask blueprints
-│   ├── __init__.py                # Blueprint exports
-│   ├── main.py                    # Home & settings pages
-│   ├── chatbot.py                 # Chat API, streaming, conversations
-│   └── api.py                     # File upload & document management
-│
-├── templates/                      # Jinja2 HTML templates
-│   ├── base.html                  # Master layout (Bootstrap 5)
-│   ├── chatbot.html               # Main chat interface
-│   └── settings.html              # Configuration & provider status
-│
-├── static/                         # Static assets
-│   ├── css/
-│   │   └── style.css              # Custom styles
-│   ├── js/
-│   │   └── main.js                # Shared JS utilities
-│   └── uploads/                   # Temporary file storage
-│       └── .gitkeep
-│
-└── flask_session/                  # Server-side session files (auto-created)
-    ├── chats/                      # Pickled conversation data
-    └── docs/                       # Pickled document data
-```
-
----
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
+- Python 3.8 or higher
+- pip (Python package manager)
+- A Hugging Face API token (free at https://huggingface.co/settings/tokens)
 
-- **Python**: 3.10 or higher
-- **pip**: Latest version
-- **Memory**: 2GB RAM minimum (4GB+ recommended for local models)
+### Installation
 
-### 1. Clone & Setup
-
+1. **Clone or navigate to the project:**
 ```bash
-git clone <your-repo-url> chatbot_flask
-cd chatbot_flask
-
-python -m venv venv
-source venv/bin/activate        # macOS/Linux
-# venv\Scripts\activate         # Windows
-
-pip install -r requirements.txt
+cd FINESE-SCHOOL
 ```
 
-### 2. Configure Environment
+2. **Install dependencies:**
+```bash
+pip install -r requirements_flask.txt
+```
 
+3. **Set up environment variables:**
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys
 ```
 
-### 3. Run
+4. **Edit `.env` file and add your API key:**
+```env
+HUGGINGFACE_API_KEY=your_actual_token_here
+API_TYPE=huggingface
+MODEL_NAME=mistralai/Mistral-7B-Instruct-v0.2
+```
 
+5. **Run the application:**
 ```bash
-# Development
 py app.py
-
-# Production (Gunicorn)
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
-Open **http://127.0.0.1:5000** — the app will automatically create a default conversation on first load.
+6. **Open your browser:**
+Visit http://localhost:5000
 
----
+## 🎯 Usage Guide
 
-## Supported LLM Providers
+### Selecting a Topic
+1. Choose from available topics in the sidebar:
+   - Python Programming
+   - Data Analysis with Pandas & NumPy
+   - SQL
+   - Machine Learning
+   - Deep Learning
+   - Data Visualization
+   - Power BI
 
-| Provider | Package Required | Environment Variable | Default Model |
-|----------|---------------|----------------------|---------------|
-| **OpenAI** | `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
-| **Anthropic** | `anthropic` | `ANTHROPIC_API_KEY` | `claude-3-haiku-20240307` |
-| **Google** | `google-generativeai` | `GOOGLE_API_KEY` | `gemini-1.5-flash` |
-| **Hugging Face** | `requests` (built-in) | `HF_TOKEN` | `mistralai/Mistral-7B-Instruct-v0.3` |
-| **Ollama** | `requests` (built-in) | None (local) | `llama3.2` |
+### Asking Questions
+1. Type your question in the input area
+2. Press Enter or click "Get Expert Answer"
+3. Watch the streaming response appear in real-time
+4. Review diagnosis, code examples, and best practices
 
-Install only the packages you need:
-```bash
-pip install openai anthropic google-generativeai
+### Managing Conversations
+- **Clear Chat**: Click the trash icon in sidebar
+- **Export PDF**: Click export button to download session
+- **Toggle Theme**: Click theme button to switch dark/light mode
+
+## 🏗️ Project Structure
+
+```
+FINESE-SCHOOL/
+├── app.py                      # Main Flask application
+├── config.py                   # Configuration settings
+├── chat_engine.py             # Core chat logic
+├── models.py                  # Pydantic data models
+├── pdf_export.py              # PDF generation
+├── utils.py                   # Utility functions
+├── requirements_flask.txt     # Dependencies
+├── .env.example               # Environment template
+├── static/
+│   └── css/
+│       └── style.css          # Glassmorphism styles
+├── templates/
+│   └── index.html             # Main interface (inline JS)
+└── src/                       # Existing modules (reused)
+    ├── __init__.py
+    ├── chat_engine.py
+    ├── config.py
+    ├── models.py
+    ├── pdf_export.py
+    └── utils.py
 ```
 
----
+## 🎨 Design System
 
-## Key Features
+### Glassmorphism Components
+- Semi-transparent backgrounds with blur effects
+- Subtle borders and shadows for depth
+- Smooth hover animations
+- Gradient overlays
 
-- **Multi-Provider LLM Support**: Switch between OpenAI, Anthropic, Google, Hugging Face, and local Ollama models
-- **Streaming Responses**: Real-time token streaming via Server-Sent Events (SSE)
-- **Persistent Conversations**: Multiple chat threads with server-side pickle storage
-- **Document Upload**: Upload `.txt`, `.csv`, `.py`, `.md` files for RAG context
-- **Session-Based Settings**: Per-user provider/model/temperature configuration
-- **Responsive UI**: Bootstrap 5 with sidebar conversation list and collapsible settings panel
-- **Modular Architecture**: Easy to extend with new providers or features
+### Color Palette
+**Light Theme:**
+- Primary: Blue (#4285f4)
+- Secondary: Red (#ea4335)
+- Accent: Green (#34a853)
 
----
+**Dark Theme:**
+- Primary: Light Blue (#8ab4f8)
+- Secondary: Light Red (#f28b82)
+- Accent: Light Green (#81c995)
 
-## API Endpoints
+### Animations
+- Animated gradient background (15s loop)
+- Fade-in message transitions
+- Hover scale effects
+- Typing indicator bounce
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/chat` | Main chat UI |
-| `GET` | `/settings` | Settings page |
-| `GET` | `/api/conversations` | List all conversations |
-| `POST` | `/api/conversations` | Create new conversation |
-| `DELETE` | `/api/conversations/<id>` | Delete conversation |
-| `POST` | `/api/conversations/<id>/rename` | Rename conversation |
-| `POST` | `/api/conversations/<id>/activate` | Set active conversation |
-| `GET` | `/api/conversations/<id>/messages` | Get messages |
-| `POST` | `/api/conversations/<id>/clear` | Clear messages |
-| `POST` | `/api/chat` | Send message (non-streaming) |
-| `POST` | `/api/chat/stream` | Send message (streaming SSE) |
-| `GET` | `/api/settings` | Get current settings |
-| `POST` | `/api/settings` | Update settings |
-| `GET` | `/api/providers` | List available providers |
-| `POST` | `/api/upload` | Upload file |
-| `GET` | `/api/documents` | List uploaded documents |
-| `DELETE` | `/api/documents/<id>` | Delete document |
-
----
-
-## Configuration
+## 🔧 Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FLASK_DEBUG` | Enable debug mode | `true` |
+| `SECRET_KEY` | Flask secret key | `dev-key` |
+| `PORT` | Server port | `5000` |
+| `API_TYPE` | LLM provider | `huggingface` |
+| `HUGGINGFACE_API_KEY` | HF API token | Required |
+| `MODEL_NAME` | Model identifier | `mistralai/Mistral-7B-Instruct-v0.2` |
+| `TEMPERATURE` | Response randomness | `0.3` |
+| `MAX_TOKENS` | Max response length | `2048` |
 
-```env
-# Flask Configuration
-SECRET_KEY=your-super-secret-key-change-this-in-production
-FLASK_ENV=development
+### Supported Models
 
-# LLM Provider API Keys (add only the ones you plan to use)
-OPENAI_API_KEY=sk-your-openai-api-key-here
-ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
-GOOGLE_API_KEY=your-google-generative-ai-key-here
-HF_TOKEN=hf_your-huggingface-token-here
+**Hugging Face:**
+- mistralai/Mistral-7B-Instruct-v0.2
+- meta-llama/Llama-3-8b-chat-hf
+- google/flan-t5-xxl
+- HuggingFaceH4/zephyr-7b-beta
 
-# Optional: Ollama base URL (default: http://localhost:11434)
-# OLLAMA_BASE_URL=http://localhost:11434
+**Google Gemini:**
+- gemini-1.5-flash
+- gemini-1.5-pro
+- gemini-1.5-ultra
+
+**OpenAI:**
+- gpt-4o
+- gpt-4-turbo
+- gpt-3.5-turbo
+
+**Anthropic:**
+- claude-3-5-sonnet-20240620
+- claude-3-opus-20240229
+- claude-3-haiku-20240307
+
+## 🌐 API Endpoints
+
+### POST /api/chat
+Standard chat endpoint (non-streaming)
+
+**Request:**
+```json
+{
+  "topic": "Python",
+  "question": "What is a list comprehension?"
+}
 ```
 
-### Per-Session Settings
-
-Users can change provider, model, temperature, max tokens, and system message via the settings panel in the chat UI. These are stored per-session in `ChatStore`.
-
----
-
-## Extending the Chatbot
-
-### Adding a New LLM Provider
-
-1. Create a new class in `services/llm_service.py` inheriting from `BaseLLMProvider`
-2. Implement `chat()` and optionally `chat_stream()` methods
-3. Register it in `LLMService.PROVIDERS` and `LLMService.DEFAULT_MODELS`
-4. Add the provider option to the settings dropdown in `templates/chatbot.html`
-
-### Adding Vector DB for RAG
-
-Replace `DocumentStore.get_combined_context()` with a proper vector search:
-1. Chunk documents on upload
-2. Store embeddings in ChromaDB / Pinecone / Weaviate
-3. Retrieve relevant chunks at query time
-
----
-
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
-| `KeyError: 'session_id'` | Clear browser cookies and refresh |
-| Upload fails with 413 | Increase `MAX_CONTENT_LENGTH` in `config.py` |
-| Session lost on refresh | Verify `flask_session/` directory exists and is writable |
-| LLM returns error | Check API key in `.env` and provider status on `/settings` |
-| Ollama not connecting | Ensure Ollama is running: `ollama serve` |
-
----
-
-## License
-
-MIT License
+**Response:**
+```json
+{
+  "is_on_topic": true,
+  "diagnosis": "User wants to understand Python list comprehensions",
+  "answer": "List comprehensions provide...",
+  "code_example": "[x**2 for x in range(10)]",
+  "best_practice_tip": "Use for simple transformations",
+  "references": ["https://docs.python.org/3/tutorial/datastructures.html"]
+}
 ```
 
----
+### POST /api/chat/stream
+Streaming chat endpoint using SSE
 
-## File Summary Table
+**Request:** Same as above
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `config.py` | 45 | Global constants, API keys, defaults |
-| `core/__init__.py` | 1 | Package marker |
-| `core/chat_store.py` | 155 | Conversation persistence with pickle |
-| `core/document_store.py` | 85 | File upload persistence for RAG |
-| `services/__init__.py` | 1 | Package marker |
-| `services/llm_service.py` | 315 | 5 LLM providers (OpenAI, Anthropic, Google, HF, Ollama) |
-| `routes/__init__.py` | 6 | Blueprint exports |
-| `routes/main.py` | 22 | Home redirect + settings page |
-| `routes/chatbot.py` | 215 | 13 API endpoints for chat & conversations |
-| `routes/api.py` | 55 | File upload & document management |
-| `static/js/main.js` | 95 | Shared JS utilities (toast, clipboard, debounce) |
-| `README.md` | 280 | Full documentation |
+**Response:** Server-Sent Events stream
+```
+data: {"type": "diagnosis", "content": "..."}
+data: {"type": "answer_chunk", "content": "..."}
+data: {"type": "code", "content": "..."}
+data: {"type": "tip", "content": "..."}
+data: {"type": "complete"}
+```
 
-All files are syntactically verified and ready to run.
+### POST /api/export-pdf
+Export chat history to PDF
 
-# FINESE SCHOOL - AI Assistant for Data Professionals
+**Request:**
+```json
+{
+  "history": [
+    {"sender": "user", "content": "Question"},
+    {"sender": "bot", "content": "Answer"}
+  ]
+}
+```
 
-<p align="center">
-  <strong>Use any AI of your choice to master SQL, Python, data analysis, and visualization.</strong>
-</p>
+**Response:** PDF file download
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/flask-3.0-green.svg" alt="Flask">
-  <img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License">
-</p>
+### GET /api/topics
+Get all available topics
 
----
+**Response:**
+```json
+{
+  "Python": {
+    "name": "Python",
+    "description": "...",
+    "domain": "programming"
+  }
+}
+```
 
-## Features
+## 🎓 Educational Approach
 
-### AI Chat
-- **Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, HuggingFace, Ollama (local)
-- **Streaming Responses**: Real-time token-by-token output
-- **Markdown Rendering**: Code blocks with syntax highlighting
-- **Document RAG**: Upload documents for context-aware conversations
-- **Conversation Management**: Multiple conversations, rename, delete, export
+### Socratic Method
+The AI tutor uses guided questioning to help you discover answers:
+1. Clarification questions
+2. Assumption exploration
+3. Knowledge application
 
-### Data Workspace
-- **SQL Editor**: CodeMirror-based editor with syntax highlighting
-- **Database Connectivity**: SQLite, MySQL, PostgreSQL, SQL Server
-- **Natural Language to SQL**: Describe what you want, AI writes the query
-- **Python Code Execution**: Sandboxed execution with pandas, numpy, matplotlib
-- **Data Visualization**: Auto-generate charts with Plotly.js
-- **CSV/Excel Analysis**: Upload data files for AI-powered analysis
+### Structured Responses
+Every answer includes:
+- **Diagnosis**: What you might be misunderstanding
+- **Explanation**: Clear, step-by-step breakdown
+- **Code Example**: Minimal, runnable code
+- **Best Practice**: Key tip or warning
+- **References**: Official documentation links
 
-### Learning Hub
-- **Structured Learning Paths**: SQL, Python, Data Visualization, Machine Learning
-- **Interactive Exercises**: Practice with instant feedback
-- **AI Tutor**: Ask questions and get personalized explanations
-- **Progress Tracking**: Monitor your learning journey
+### Topic Enforcement
+Questions are validated against selected topic to maintain focus and prevent confusion.
 
-### Production Ready
-- **Docker Support**: One-command deployment
-- **Rate Limiting**: Protection against API abuse
-- **Structured Logging**: Debug and monitor with ease
-- **Export**: Download conversations, query results, analysis
+## 🔒 Security
 
-## Quick Start
+### Best Practices Implemented
+- ✅ API keys stored in environment variables only
+- ✅ No sensitive data exposed in frontend
+- ✅ Input sanitization with bleach library
+- ✅ Rate limiting (configurable)
+- ✅ Session management
+
+### Production Recommendations
+1. Change `SECRET_KEY` to a strong random value
+2. Set `FLASK_DEBUG=false`
+3. Use Redis for session storage
+4. Enable HTTPS
+5. Add authentication if needed
+6. Configure CORS properly
+
+## 🚀 Deployment
 
 ### Local Development
-
 ```bash
-# Clone and setup
-git clone <repo-url>
-cd finese-school
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
-
-# Run
-python app.py
+py app.py
 ```
 
-Visit `http://localhost:5000`
-
-### Docker
-
+### Production with Gunicorn
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
-
-docker compose up -d
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
-Visit `http://localhost:5000`
+### Docker (Optional)
+Create `Dockerfile`:
+```dockerfile
+FROM python:3.10-slim
 
-### With Local AI (Ollama)
+WORKDIR /app
+COPY requirements_flask.txt .
+RUN pip install --no-cache-dir -r requirements_flask.txt
 
+COPY . .
+
+EXPOSE 5000
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+```
+
+Build and run:
 ```bash
-docker compose --profile local-ai up -d
+docker build -t finese-school .
+docker run -p 5000:5000 --env-file .env finese-school
 ```
 
-## Configuration
+## 🧪 Testing
 
-Set these in your `.env` file:
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `GOOGLE_API_KEY` | Google Gemini API key |
-| `HF_TOKEN` | HuggingFace token |
-| `OLLAMA_BASE_URL` | Ollama server URL (default: http://localhost:11434) |
-| `FLASK_SECRET_KEY` | Flask session secret key |
-| `DATABASE_URL` | Database URL (default: sqlite:///finese_school.db) |
-
-## Project Structure
-
-```
-finese-school/
-├── app.py                    # Flask application entry point
-├── config.py                 # Configuration and learning paths
-├── models/                   # SQLAlchemy models
-│   ├── conversation.py       # Chat conversations & messages
-│   ├── database_connection.py # DB connection configs
-│   └── learning.py           # Learning progress & exercises
-├── core/                     # Core services
-│   ├── code_executor.py      # Sandboxed Python execution
-│   ├── database_service.py   # SQL execution & schema introspection
-│   ├── data_analyzer.py      # CSV/Excel analysis & visualization
-│   └── vector_store.py       # ChromaDB RAG vector store
-├── services/
-│   └── llm_service.py        # Multi-provider LLM abstraction
-├── routes/                   # Flask blueprints
-│   ├── main.py               # Dashboard, workspace pages
-│   ├── chatbot.py            # Chat UI & streaming API
-│   ├── api.py                # File upload, export
-│   ├── data.py               # SQL, Python, data analysis endpoints
-│   └── education.py          # Learning paths, exercises, AI tutor
-├── templates/                # Jinja2 HTML templates
-├── static/                   # CSS, JS, uploads
-├── tests/                    # Pytest test suite
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── .env.example
+Run tests (if test suite exists):
+```bash
+py -m pytest tests/
 ```
 
-## Architecture
+## 📊 Performance Tips
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Browser                        │
-│  (CodeMirror, Plotly.js, marked.js, Prism.js)   │
-└──────────────────────┬──────────────────────────┘
-                       │ HTTP / SSE
-┌──────────────────────┴──────────────────────────┐
-│              Flask Application                    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │  Routes  │ │  Models  │ │   Core Services  │ │
-│  │ (API)    │ │ (SQLA)   │ │  (Executors)     │ │
-│  └────┬─────┘ └────┬─────┘ └──┬───┬───┬───────┘ │
-│       │            │          │   │   │         │
-│  ┌────┴────────────┴──────────┴───┴───┴───────┐ │
-│  │           LLM Service (Multi-Provider)      │ │
-│  └──┬──────┬──────┬──────┬──────┬─────────────┘ │
-└─────┼──────┼──────┼──────┼──────┼───────────────┘
-      │      │      │      │      │
-  OpenAI  Anthropic Google   HF   Ollama
-```
+### Optimization Strategies
+1. **Caching**: Implement LRU cache for frequent questions
+2. **Lazy Loading**: Load heavy resources on demand
+3. **Debouncing**: Delay rapid user inputs
+4. **Compression**: Enable gzip for responses
+5. **CDN**: Use CDN for fonts and static assets
 
-## License
+### Monitoring
+- Check Flask logs for errors
+- Monitor API rate limits
+- Track response times
+- Watch memory usage
 
-MIT
-#   F I N E S E - S C H O O L  
- 
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Problem**: Module not found error  
+**Solution**: Ensure all dependencies installed: `pip install -r requirements_flask.txt`
+
+**Problem**: API key error  
+**Solution**: Verify `.env` file exists and contains valid API key
+
+**Problem**: Port already in use  
+**Solution**: Change PORT in `.env` or kill existing process
+
+**Problem**: CSS not loading  
+**Solution**: Check `static/css/style.css` exists and path is correct
+
+**Problem**: Streaming not working  
+**Solution**: Ensure browser supports EventSource API (all modern browsers do)
+
+### Getting Help
+1. Check this README
+2. Review error messages in browser console
+3. Check Flask terminal output
+4. Verify environment variables
+5. Test with different model
+
+## 🌟 What Makes This Special
+
+### For Students
+- **No JavaScript Frameworks**: Demonstrates mastery of fundamentals
+- **Modern Design**: Professional presentation quality
+- **Educational Focus**: Built for learning, not just chatting
+- **Free to Use**: Open source with free tier models
+
+### For Developers
+- **Clean Architecture**: Well-organized, modular code
+- **Easy to Extend**: Add new features quickly
+- **Production Ready**: Includes security and deployment configs
+- **Documentation**: Comprehensive guides and examples
+
+## 🔮 Future Enhancements
+
+Planned features:
+- [ ] Voice input/output
+- [ ] Collaborative study sessions
+- [ ] Advanced analytics dashboard
+- [ ] Mobile app version
+- [ ] Jupyter Notebook integration
+- [ ] GitHub Classroom sync
+- [ ] Quiz generation
+- [ ] Progress badges and gamification
+
+## 📚 Resources
+
+### Research Sources
+- [SocraticLM](https://github.com/Ljyustc/SocraticLM)
+- [DeepTutor](https://github.com/HKUDS/DeepTutor)
+- [Hugging Face Models](https://huggingface.co/models)
+- [Glassmorphism Design](https://ui.glass)
+
+### Documentation
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
+- [CSS Backdrop Filter](https://developer.mozilla.org/en-US/docs/Web/CSS/backdrop-filter)
+
+## 📝 License
+
+MIT License - Feel free to use for educational purposes!
+
+## 👨‍💻 Author
+
+Built by a senior data science student for classroom presentation.
+
+## 🙏 Acknowledgments
+
+- Hugging Face for open-source models
+- Flask community for excellent framework
+- Google Fonts for beautiful typography
+- All open-source contributors
+
+---
+
+**Enjoy learning with FINESE SCHOOL! 🚀**
+
+*Last Updated: 2026-06-30*  
+*Version: 2.0 (Flask Transformation)*

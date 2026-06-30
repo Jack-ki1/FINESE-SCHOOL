@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FINESE SCHOOL - Data Science Mentor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+</head>
+<body class="animated-bg">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass-card">
+            <h2>🎯 Topics</h2>
+            <div id="topic-list">
+                {% for key, topic in topics.items() %}
+                <div class="topic-card {% if loop.first %}active{% endif %}" 
+                     data-topic="{{ key }}"
+                     onclick="selectTopic('{{ key }}')">
+                    <div class="topic-title">{{ topic.name }}</div>
+                    <div class="topic-description">{{ topic.description[:100] }}...</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="settings-section mt-3">
+                <h3>⚙️ Settings</h3>
+                <button onclick="toggleTheme()" class="btn btn-secondary">🌓 Toggle Theme</button>
+                <button onclick="clearChat()" class="btn btn-secondary mt-1">🗑️ Clear Chat</button>
+                <button onclick="exportChat()" class="btn btn-secondary mt-1">📥 Export PDF</button>
+            </div>
+            
+            <div class="stats-section mt-3">
+                <h3>📊 Session Stats</h3>
+                <div id="session-stats">
+                    <div class="stat-item">
+                        <strong id="questions-count">0</strong>
+                        <span>Questions</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong id="topics-count">0</strong>
+                        <span>Topics</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header glass-card">
+                <h1>🎓 FINESE SCHOOL</h1>
+                <p>Your 24/7 Data Science Mentor</p>
+            </header>
+            
+            <div id="chat-container" class="chat-container glass-card">
+                <div class="welcome-message">
+                    <h3>👋 Welcome!</h3>
+                    <p>Select a topic and ask your first question to get started.</p>
+                    <p style="margin-top: 12px; font-size: 0.9em;">Try asking about Python, Pandas, SQL, Machine Learning, and more!</p>
+                </div>
+            </div>
+            
+            <div class="input-area glass-card">
+                <textarea 
+                    id="user-input" 
+                    placeholder="Ask anything about data science..."
+                    rows="3"
+                ></textarea>
+                <button id="send-btn" class="btn btn-primary" onclick="sendMessage()">
+                    🧠 Get Expert Answer
+                </button>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Inline JavaScript - No external dependencies! -->
+    <script>
+        // Application State
+        let currentTopic = '{{ topics.keys()|list|first }}';
+        let chatHistory = [];
+        let questionsAsked = 0;
+        let topicsCovered = new Set();
+        let isStreaming = false;
+        
+        // Initialize application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+        
+        function initializeApp() {
+            setupEventListeners();
+            loadSavedSettings();
+            updateStats();
+        }
+        
+        function setupEventListeners() {
+            const sendBtn = document.getElementById('send-btn');
+            const userInput = document.getElementById('user-input');
+            
+            // Send button click
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // Enter key to send (Shift+Enter for new line)
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Auto-resize textarea
+            userInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+            });
+        }
+        
+        function loadSavedSettings() {
+            // Load theme preference
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.setAttribute('data-theme', savedTheme);
+            
+            // Load last selected topic
+            const savedTopic = localStorage.getItem('currentTopic');
+            if (savedTopic && document.querySelector(`[data-topic="${savedTopic}"]`)) {
+                selectTopic(savedTopic);
+            }
+        }
+        
+        function selectTopic(topic) {
+            currentTopic = topic;
+            localStorage.setItem('currentTopic', topic);
+            
+            // Update UI
+            document.querySelectorAll('.topic-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            const activeCard = document.querySelector(`[data-topic="${topic}"]`);
+            if (activeCard) {
+                activeCard.classList.add('active');
+            }
+            
+            // Track topic coverage
+            topicsCovered.add(topic);
+            updateStats();
+        }
+        
+        async function sendMessage() {
+            if (isStreaming) return; // Prevent multiple simultaneous requests
+            
+            const userInput = document.getElementById('user-input');
+            const message = userInput.value.trim();
+            
+            if (!message) {
+                alert('Please enter a question!');
+                return;
+            }
+            
+            // Add user message to chat
+            addMessageToChat('user', message);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            isStreaming = true;
+            
+            // Track question
+            questionsAsked++;
+            updateStats();
+            
+            try {
+                // Use streaming endpoint for better UX
+                await streamChatResponse(currentTopic, message);
+            } catch (error) {
+                console.error('Error:', error);
+                hideTypingIndicator();
+                addMessageToChat('bot', '❌ Sorry, an error occurred. Please try again.');
+            } finally {
+                isStreaming = false;
+            }
+        }
+        
+        async function streamChatResponse(topic, question) {
+            const response = await fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ topic, question })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let botMessageElement = null;
+            let accumulatedAnswer = '';
+            let hasDiagnosis = false;
+            let hasCode = false;
+            let hasTip = false;
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.type === 'error') {
+                                hideTypingIndicator();
+                                addMessageToChat('bot', `❌ Error: ${data.content}`);
+                                return;
+                            }
+                            
+                            if (data.type === 'diagnosis' && !hasDiagnosis) {
+                                if (!botMessageElement) {
+                                    botMessageElement = addMessageToChat('bot', '');
+                                }
+                                const diagnosisDiv = document.createElement('div');
+                                diagnosisDiv.className = 'diagnosis';
+                                diagnosisDiv.innerHTML = `<strong>🔍 Diagnosis:</strong> ${data.content}`;
+                                botMessageElement.querySelector('.message-content').appendChild(diagnosisDiv);
+                                hasDiagnosis = true;
+                                scrollToBottom();
+                            }
+                            
+                            if (data.type === 'answer_chunk') {
+                                if (!botMessageElement) {
+                                    botMessageElement = addMessageToChat('bot', '');
+                                }
+                                accumulatedAnswer += data.content;
+                                
+                                // Update answer content
+                                const contentDiv = botMessageElement.querySelector('.message-content');
+                                let answerHTML = contentDiv.querySelector('.answer-text');
+                                if (!answerHTML) {
+                                    answerHTML = document.createElement('div');
+                                    answerHTML.className = 'answer-text';
+                                    contentDiv.appendChild(answerHTML);
+                                }
+                                answerHTML.textContent = accumulatedAnswer;
+                                scrollToBottom();
+                            }
+                            
+                            if (data.type === 'code' && !hasCode) {
+                                const contentDiv = botMessageElement.querySelector('.message-content');
+                                const codeBlock = document.createElement('pre');
+                                codeBlock.className = 'code-block';
+                                codeBlock.textContent = data.content;
+                                contentDiv.appendChild(codeBlock);
+                                hasCode = true;
+                                scrollToBottom();
+                            }
+                            
+                            if (data.type === 'tip' && !hasTip) {
+                                const contentDiv = botMessageElement.querySelector('.message-content');
+                                const tipDiv = document.createElement('div');
+                                tipDiv.className = 'tip';
+                                tipDiv.innerHTML = `<strong>💡 Best Practice:</strong> ${data.content}`;
+                                contentDiv.appendChild(tipDiv);
+                                hasTip = true;
+                                scrollToBottom();
+                            }
+                            
+                            if (data.type === 'complete') {
+                                hideTypingIndicator();
+                                // Save to history
+                                chatHistory.push({
+                                    sender: 'user',
+                                    content: question
+                                });
+                                chatHistory.push({
+                                    sender: 'bot',
+                                    content: accumulatedAnswer
+                                });
+                            }
+                        } catch (parseError) {
+                            console.error('Parse error:', parseError);
+                        }
+                    }
+                }
+            }
+        }
+        
+        function addMessageToChat(sender, content) {
+            const chatContainer = document.getElementById('chat-container');
+            
+            // Remove welcome message if it exists
+            const welcomeMsg = chatContainer.querySelector('.welcome-message');
+            if (welcomeMsg) {
+                welcomeMsg.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${sender} fade-in`;
+            
+            const senderLabel = sender === 'user' ? '🧑‍🎓 You' : '🤖 Dr. Data';
+            messageDiv.innerHTML = `
+                <div class="message-sender">${senderLabel}</div>
+                <div class="message-content"></div>
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+            
+            return messageDiv;
+        }
+        
+        function showTypingIndicator() {
+            const chatContainer = document.getElementById('chat-container');
+            
+            // Remove existing indicator if any
+            hideTypingIndicator();
+            
+            const indicator = document.createElement('div');
+            indicator.id = 'typing-indicator';
+            indicator.className = 'typing-indicator';
+            indicator.innerHTML = '<span></span><span></span><span></span>';
+            chatContainer.appendChild(indicator);
+            scrollToBottom();
+        }
+        
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+        
+        function scrollToBottom() {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function clearChat() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                const chatContainer = document.getElementById('chat-container');
+                chatContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h3>👋 Chat cleared! Ask a new question.</h3>
+                    </div>
+                `;
+                chatHistory = [];
+                questionsAsked = 0;
+                topicsCovered.clear();
+                updateStats();
+            }
+        }
+        
+        async function exportChat() {
+            if (chatHistory.length === 0) {
+                alert('No chat history to export!');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/export-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ history: chatHistory })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'finese_school_session.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                alert('Export failed: ' + error.message);
+            }
+        }
+        
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+        
+        function updateStats() {
+            document.getElementById('questions-count').textContent = questionsAsked;
+            document.getElementById('topics-count').textContent = topicsCovered.size;
+        }
+    </script>
+</body>
+</html>
