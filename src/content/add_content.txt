@@ -1,0 +1,57 @@
+I'm building an educational content library for a self-paced learning platform called 
+FINESE SCHOOL. I need you to research and help me add more lessons to specific topic 
+files. Each topic is a Python file containing a SUBTOPICS list of dicts, and every 
+lesson must follow this exact schema:
+
+dict(
+    id="unique-slug",
+    title="Lesson Title",
+    hook="One punchy sentence that sells why this matters — no filler.",
+    explanation=(
+        "3-5 paragraphs of genuine, accurate, non-generic explanation. Written like an "
+        "expert explaining to a smart beginner. Use `backticks` for inline code/terms. "
+        "Go deeper than a typical GeeksforGeeks/tutorial article — include the 'why', "
+        "not just the 'what'."
+    ),
+    deep_dive=(
+        "2-4 additional paragraphs covering internals, edge cases, historical context, "
+        "or comparisons to related concepts — content for someone who wants to actually "
+        "master the topic, not just pass a quiz on it."
+    ),
+    code=dict(lang="python", label="What this snippet demonstrates", src="..."),
+    advanced_code=dict(lang="python", label="A second, more advanced example", src="..."),
+    example="A real-world scenario where this specific concept actually matters in practice.",
+    best_practices=["4-6 specific, actionable recommendations, not generic advice"],
+    pitfalls=["4-6 specific mistakes people actually make, and why they happen"],
+    glossary=[dict(term="Key Term", definition="A precise, correct definition")],
+    faq=[dict(q="A question a learner would actually ask", a="A real, specific answer")],
+    quiz=[dict(question="...", options=["...", "...", "...", "..."], correct=1, explanation="...")],
+    prompts=["4-6 questions a learner could ask an AI tutor to go deeper on this lesson"],
+)
+
+YOUR TASK: research [TOPIC NAME] thoroughly — official documentation, reputable 
+technical references (docs.python.org, MDN, official project docs, well-regarded 
+textbooks/papers), and current best practices — then write [N] new lessons in this 
+exact schema for subtopics not yet covered. 
+
+Here are the subtopic IDs already covered in this file, so you don't duplicate them:
+[PASTE THE LIST OF EXISTING ids FROM THAT FILE HERE]
+
+Suggested new subtopics to research and cover (or propose better ones if you find 
+gaps): [LIST YOUR CANDIDATE SUBTOPICS, e.g. for Python: "async/await deep dive, 
+metaclasses, descriptors, memory profiling with tracemalloc, packaging with 
+pyproject.toml build backends"]
+
+Requirements:
+- Every code example must be correct, runnable, and idiomatic — verify syntax mentally 
+  or against documentation, don't guess.
+- Every factual claim (version numbers, behavior, performance characteristics) must be 
+  accurate — if you're not sure, say so rather than inventing a plausible-sounding detail.
+- Match the tone and depth of genuine technical writing — concrete numbers, real 
+  trade-offs, specific pitfalls — not generic "it depends" hand-waving.
+- Output each lesson as a complete, valid Python dict() ready to paste into the 
+  SUBTOPICS list.
+- Aim for roughly 130-180 lines per lesson dict when formatted.
+
+Deliver the lessons one at a time or in small batches so I can review each before 
+you continue.
