@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }} — FINESE SCHOOL{% endblock %}
+
+{% block content %}
+<div class="topic-shell" style="--accent: {{ topic.color }}" data-topic-id="{{ topic.id }}">
+
+  <section class="topic-hero">
+    <div class="topic-hero-icon">{{ topic.icon }}</div>
+    <div class="topic-hero-text">
+      <div class="topic-hero-eyebrow">{{ topic.tagline }}</div>
+      <h1>{{ topic.name }}</h1>
+      <p>{{ topic.description }}</p>
+    </div>
+    <div class="topic-hero-meta">
+      <div class="topic-progress-bar"><div class="topic-progress-fill" id="topic-progress-fill"></div></div>
+      <span id="topic-progress-label">0 / {{ subtopics|length }} read</span>
+    </div>
+  </section>
+
+  <div class="topic-body">
+
+    <nav class="lesson-nav">
+      <div class="lesson-nav-label">Lessons</div>
+      <div id="lesson-nav-list">
+        {% for s in subtopics %}
+        <button class="lesson-nav-item" data-subtopic-id="{{ s.id }}">
+          <span class="lesson-check" data-check-for="{{ s.id }}"></span>
+          <span class="lesson-nav-title">{{ s.title }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="lesson-nav-label lesson-nav-label-secondary">Other topics</div>
+      <div class="other-topics-list">
+        {% for t in all_topics if t.id != topic.id %}
+        <a class="other-topic-link" href="{{ url_for('topic_page', topic_id=t.id) }}" style="--t-accent: {{ t.color }}">
+          <span class="other-topic-icon">{{ t.icon }}</span>{{ t.name }}
+        </a>
+        {% endfor %}
+      </div>
+    </nav>
+
+    <main class="lesson-content" id="lesson-content">
+      <!-- Filled by app.js from the embedded JSON below — works fully offline once loaded -->
+      <div class="lesson-loading">Loading lesson…</div>
+    </main>
+
+    <aside class="ai-panel">
+      <div class="ai-panel-header">
+        <span>💬 AI Study Partner</span>
+        <span class="net-badge" id="ai-net-badge"><span class="net-dot"></span><span class="net-label">…</span></span>
+      </div>
+      <p class="ai-panel-sub">
+        Optional. Pick a provider, paste your own API key, and ask anything about this lesson. Your key is sent
+        directly to that provider with your question and is never saved on this server. Prefer to stay fully
+        offline? Choose <strong>Ollama (local)</strong> if you have it running on this machine.
+      </p>
+
+      <div class="ai-field">
+        <label for="provider-select">Provider</label>
+        <select id="provider-select">
+          {% for pid, p in providers.items() %}
+          <option value="{{ pid }}" data-needs-key="{{ 'yes' if p.needs_key else 'no' }}">{{ p.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ai-field">
+        <label for="model-select">Model</label>
+        <select id="model-select"></select>
+      </div>
+
+      <div class="ai-field" id="api-key-field">
+        <label for="api-key-input">API key</label>
+        <input type="password" id="api-key-input" placeholder="Paste your API key" autocomplete="off" spellcheck="false">
+      </div>
+
+      <label class="socratic-row">
+        <input type="checkbox" id="socratic-toggle">
+        Guide me with questions first, instead of telling me directly
+      </label>
+
+      <div class="ai-chat" id="ai-chat"></div>
+
+      <div class="ai-composer">
+        <textarea id="ai-question" rows="3" placeholder="Ask about this lesson…"></textarea>
+        <button id="ai-send" class="btn btn-primary" type="button">Ask</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script id="subtopics-data" type="application/json">{{ subtopics | tojson }}</script>
+<script id="providers-data" type="application/json">{{ providers | tojson }}</script>
+<script id="topic-meta" type="application/json">{{ {"id": topic.id, "name": topic.name, "color": topic.color} | tojson }}</script>
+{% endblock %}

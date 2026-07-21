@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Page not found — FINESE SCHOOL{% endblock %}
+{% block content %}
+<section class="not-found">
+  <div class="not-found-icon">🧭</div>
+  <h1>That lesson doesn't exist (yet).</h1>
+  <p>The page you're looking for might have moved, or the topic hasn't been added.</p>
+  <a class="btn btn-primary" href="{{ url_for('home') }}">← Back to all topics</a>
+  <div class="not-found-grid">
+    {% for t in all_topics %}
+    <a class="not-found-chip" href="{{ url_for('topic_page', topic_id=t.id) }}" style="--accent: {{ t.color }}">
+      {{ t.icon }} {{ t.name }}
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
