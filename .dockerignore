@@ -1,0 +1,45 @@
+# Git files
+.git
+.gitignore
+
+# Python cache
+*.pyc
+__pycache__
+*.pyo
+.pytest_cache
+
+# Environment variables
+.env
+.env.local
+
+# Database files (if any)
+*.db
+
+# Cache directories
+.cache/
+__pycache__/
+
+# Documentation (not needed for deployment)
+*.md
+PROJECT_AUDIT.md
+DEPLOYMENT_GUIDE.md
+README_DEPLOYMENT.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+*_test.py
+
+# Local development files
+venv/
+env/
+.direnv/

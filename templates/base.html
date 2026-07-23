@@ -11,10 +11,10 @@
 
 <header class="site-header">
   <a class="brand" href="{{ url_for('home') }}">
-    <span class="brand-mark">🎓</span>
+    <img class="brand-logo" src="{{ url_for('static', filename='img/finese-mark.png') }}" alt="FINESE DATA logo">
     <span class="brand-text">
-      <span class="brand-name">FINESE SCHOOL</span>
-      <span class="brand-tag">learn it properly, offline or on</span>
+      <span class="brand-name">FINESE <b>SCHOOL</b></span>
+      <span class="brand-tag">a FINESE DATA learning platform</span>
     </span>
   </a>
   <div class="header-right">
@@ -27,7 +27,17 @@
 {% block content %}{% endblock %}
 
 <footer class="site-footer">
-  <p>FINESE SCHOOL — a self-hosted, offline-first learning platform. Built with Flask, HTML, CSS and vanilla JS. No tracking, no ads, your API keys never touch the server's disk.</p>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <img class="footer-logo" src="{{ url_for('static', filename='img/finese-logo.png') }}" alt="FINESE DATA">
+      <span class="footer-brand-text">
+        <span class="footer-brand-name">FINESE <b>SCHOOL</b></span>
+        <span class="footer-brand-tag">Insight. Intelligence. Impact.</span>
+      </span>
+    </div>
+    <p>A self-hosted, offline-first learning platform — a product of FINESE DATA. Built with Flask, HTML, CSS and vanilla JS. No tracking, no ads, your API keys never touch the server's disk.</p>
+  </div>
+  <p class="footer-copy" style="text-align:center;margin-top:24px;">© 2025 FINESE DATA. All rights reserved.</p>
 </footer>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>

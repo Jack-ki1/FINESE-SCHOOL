@@ -1,3 +1,13 @@
+---
+title: FINESE_SCHOOL
+emoji: 👀
+colorFrom: green
+colorTo: indigo
+sdk: docker
+license: mit
+pinned: false
+---
+
 # FINESE SCHOOL — offline-first learning platform
 
 Learn Python, AI, SQL, NoSQL, MCP, Power BI, Machine Learning, Deep Learning,
